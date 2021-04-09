@@ -9,51 +9,82 @@ app.get('/', function (req, res) {
 })
 
 app.get('/login', function (req, res) {
-   res.send('login');
+   // http://127.0.0.1:8081/login?user_name=ABC&password=DEF
+   // console.log(req.query.user_name);
+   // console.log(req.query.password);
+   console.log('login Start');
+
+   // open the database
+   let db = new sqlite3.Database(__dirname + '\\sqlite3\\flight.db');
+
+   let sql = `SELECT count(*) as cnt
+            FROM user_account
+            WHERE user_name = ?
+            AND password = ?`;
+
+   // first row only
+   db.get(sql, [req.query.user_name, req.query.password], (err, row) => {
+      if (err) {
+         return console.error(err.message);
+      } else {
+         if(row.cnt ==0){
+            res.send({error: 'Not found eligible user'});
+         } else {
+            //--generate and return token
+            let f_token = req.query.user_name + '_token';
+            let f_current = new Date(Date.now());
+            // insert one row into the langs table
+            db.run(`INSERT INTO token(token, create_time, user_name) VALUES(?, ?, ?)`, 
+                     [f_token, f_current, req.query.user_name], function(err) {
+               if (err) {
+                  return console.log(err.message);
+               }
+               // get the last insert id
+               // console.log(`A row has been inserted with rowid ${this.lastID}`);
+               res.send({token: f_token});
+            });
+         }
+      }
+      // return row
+      //    ? console.log(row.cnt)
+      //    : console.log(`No playlist found with the id`);
+
+   });
+
+   // close the database connection
+   db.close();
+
+   // res.send('login');
+   console.log('login end');
 })
 
 app.get('/getAirportPair', function (req, res) {
-   // res.send('getAirportPair');
+   // http://127.0.0.1:8081/getAirportPair
+   console.log('getAirportPair Start');
 
    // open the database
-   let db = new sqlite3.Database('C:\\Users\\jiean.a.lu\\temp\\sqlite3\\flight.db');
-   // db.serialize([callback]);
+   // let db = new sqlite3.Database('C:\\Users\\jiean.a.lu\\temp\\sqlite3\\flight.db');
+   // console.log(__dirname);
+   let db = new sqlite3.Database(__dirname + '\\sqlite3\\flight.db');
 
    let sql = `SELECT departure, destination
             FROM airport_pair`;
-   let playlistId = 1;
 
-   // first row only
-   // db.get(sql, [playlistId], (err, row) => {
-   // if (err) {
-   //    return console.error(err.message);
-   // }
-   // return row
-   //    ? console.log(row.id, row.name)
-   //    : console.log(`No playlist found with the id ${playlistId}`);
-
-   // });
-   let outcontent=[{departure: "testa", destination: "testb"}];
-
-   let f_getall = function(outcontent, callback){
-      db.each(sql, (err, row) => {
-         if (err) {
+   db.all(sql, [], (err, rows) => {
+      if (err) {
          throw err;
-         }
-         console.log(`${row.departure} ${row.destination}`);
-         outcontent.push({departure: row.departure, destination: row.destination});
-      });
-      callback(outcontent)
-   }
+      }
+
+      res.send(rows);
+      // rows.forEach((row) => {
+      //    console.log(row.name);
+      // });
+   });
 
    // close the database connection
-   // db.close();
-   // let outcontent = getAll();
+   db.close();
 
-   console.log(f_getall());
-
-   // return result
-   res.send(JSON.stringify(f_getall()));
+   console.log('getAirportPair End');
 })
 
 app.get('/getFlightStatus', function (req, res) {
